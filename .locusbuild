@@ -1,0 +1,29 @@
+# BuildWithLocus project configuration
+# See: https://docs.paywithlocus.com/build/services
+
+[project]
+name = "mealbridge"
+description = "AI-Powered Food Rescue Platform"
+
+[services.web]
+rootDir = "."
+runtime.port = 8080
+buildConfig.method = "dockerfile"
+buildConfig.dockerfile = "Dockerfile"
+healthCheckPath = "/api/health"
+startCommand = "sh -c 'npx prisma migrate deploy && node server.js'"
+
+[services.match-engine]
+rootDir = "workers/match-engine"
+runtime.port = 8080
+buildConfig.method = "dockerfile"
+buildConfig.dockerfile = "Dockerfile"
+healthCheckPath = "/health"
+
+[addons.db]
+type = "postgres"
+
+[env.web]
+DATABASE_URL = "${{db.DATABASE_URL}}"
+NODE_ENV = "production"
+PORT = "8080"
