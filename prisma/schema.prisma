@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Use SQLite locally, Postgres in production (BuildWithLocus)
+  // Local:  DATABASE_URL="file:./dev.db"
+  // Prod:   DATABASE_URL="postgresql://..." (auto-injected by Locus)
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Note: SQLite doesn't support enums or array fields.
+// We use String types here for local dev.
+// Production Postgres schema will use proper enums.
+// See prisma/schema.postgres.prisma for the production schema.
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  displayName         String
+  role                String   // restaurant, shelter, sponsor, driver, admin
+  passwordHash        String?
+  // Locus wallet (encrypted at rest)
+  locusApiKeyEnc      String?
+  locusWalletAddress  String?
+  locusOwnerAddress   String?
+  locusClaimUrl       String?
+  walletStatus        String   @default("pending")
+  // Profile
+  address             String?
+  lat                 Float?
+  lng                 Float?
+  phone               String?
+  website             String?
+  capacity            Int?
+  operatingHours      String?
+  dietaryCapabilities String   @default("[]") // JSON array stored as string
+  isVerified          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  listings       Listing[]
+  shelterMatches Match[]    @relation("ShelterMatches")
+  driverMatches  Match[]    @relation("DriverMatches")
+  donations      Donation[]
+}
+
+model Listing {
+  id            String   @id @default(uuid())
+  restaurantId  String
+  restaurant    User     @relation(fields: [restaurantId], references: [id])
+  title         String
+  description   String?
+  mealCount     Int
+  mealType      String   @default("[]") // JSON array as string
+  pickupAddress String
+  pickupBy      DateTime
+  status        String   @default("available") // available, matched, picked_up, delivered, expired
+  photoUrl      String?
+  createdAt     DateTime @default(now())
+
+  matches Match[]
+}
+
+model Match {
+  id          String    @id @default(uuid())
+  listingId   String
+  listing     Listing   @relation(fields: [listingId], references: [id])
+  shelterId   String
+  shelter     User      @relation("ShelterMatches", fields: [shelterId], references: [id])
+  driverId    String?
+  driver      User?     @relation("DriverMatches", fields: [driverId], references: [id])
+  matchScore  Float
+  matchReason String
+  distanceKm  Float?
+  status      String    @default("pending") // pending, accepted, in_transit, delivered, rejected
+  acceptedAt  DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  donations Donation[]
+}
+
+model Donation {
+  id                String    @id @default(uuid())
+  sponsorId         String
+  sponsor           User      @relation(fields: [sponsorId], references: [id])
+  matchId           String?
+  match             Match?    @relation(fields: [matchId], references: [id])
+  amount            Float
+  memo              String?
+  locusTxId         String?
+  locusTxHash       String?
+  status            String    @default("queued") // queued, pending_approval, confirmed, failed
+  method            String    @default("direct") // direct, checkout
+  agentReasoning    String?
+  checkoutSessionId String?
+  reconciledAt      DateTime?
+  createdAt         DateTime  @default(now())
+}
+
+model ImpactSnapshot {
+  id               String   @id @default(uuid())
+  totalMeals       Int      @default(0)
+  totalCo2Kg       Float    @default(0)
+  totalDonated     Float    @default(0)
+  totalMatches     Int      @default(0)
+  totalShelters    Int      @default(0)
+  totalRestaurants Int      @default(0)
+  recordedAt       DateTime @default(now())
+}
